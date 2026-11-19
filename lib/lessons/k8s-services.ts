@@ -61,7 +61,7 @@ export const k8sServicesLesson: Lesson<K8sState, K8sAction, K8sEvent> = {
           action: {
             type: 'createService',
             name: 'api-svc',
-            type: 'ClusterIP',
+            serviceType: 'ClusterIP',
             port: 80,
             targetPort: 8080,
             selector: { app: 'api-backend' },

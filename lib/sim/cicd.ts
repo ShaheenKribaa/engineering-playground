@@ -193,6 +193,9 @@ export const cicdSimulator: Simulator<CicdState, CicdAction, CicdEvent, void> = 
           `Instant rollback initiated on [${action.environment.toUpperCase()}]: traffic restored to previous healthy artifact.`,
         )
       }
+
+      default:
+        return ok(state, [], '')
     }
   },
 }

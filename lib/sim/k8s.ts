@@ -42,7 +42,7 @@ export type K8sAction =
   | { type: 'createDeployment'; name: string; image: string; replicas: number }
   | { type: 'scale'; name: string; replicas: number }
   | { type: 'deletePod'; name: string }
-  | { type: 'createService'; name: string; type?: 'ClusterIP' | 'NodePort' | 'LoadBalancer'; port: number; targetPort: number; selector: Record<string, string> }
+  | { type: 'createService'; name: string; serviceType?: 'ClusterIP' | 'NodePort' | 'LoadBalancer'; port: number; targetPort: number; selector: Record<string, string> }
   | { type: 'sendTraffic'; service: string }
 
 export type K8sEvent =
@@ -59,7 +59,8 @@ export const k8sSimulator: Simulator<K8sState, K8sAction, K8sEvent, { nodes: num
   version: '1.0.0',
 
   initialize(config) {
-    const nodes: K8sNode[] = Array.from({ length: config.nodes ?? 3 }, (_, i) => ({
+    const count = config?.nodes ?? 3
+    const nodes: K8sNode[] = Array.from({ length: count }, (_, i) => ({
       name: `node-${i + 1}`,
       cpu: 4,
       memory: '16Gi',
@@ -188,7 +189,7 @@ export const k8sSimulator: Simulator<K8sState, K8sAction, K8sEvent, { nodes: num
       case 'createService': {
         const service: K8sService = {
           name: action.name,
-          type: action.type ?? 'ClusterIP',
+          type: action.serviceType ?? 'ClusterIP',
           port: action.port,
           targetPort: action.targetPort,
           selector: action.selector,
@@ -213,6 +214,9 @@ export const k8sSimulator: Simulator<K8sState, K8sAction, K8sEvent, { nodes: num
           `Traffic routed via service/${svc.name} (${svc.type}) -> Pod ${chosen.name} (${chosen.ip}:${svc.targetPort}) on ${chosen.node}`,
         )
       }
+
+      default:
+        return ok(state, [], '')
     }
   },
 }

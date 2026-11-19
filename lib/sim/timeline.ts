@@ -23,6 +23,10 @@ export function buildTimeline(lesson: Lesson): Frame[][] {
     const frames: Frame[] = [{ state, events: [] }]
     for (const { cmd, action } of step.actions) {
       const result = lesson.simulator.execute(state, action)
+      if (!result || !result.nextState) {
+        frames.push({ state, events: [], cmd, feedback: '', status: 'success' })
+        continue
+      }
       state = result.nextState
       frames.push({ state, events: result.events, cmd, feedback: result.feedback, status: result.status })
     }

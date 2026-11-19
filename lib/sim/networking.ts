@@ -186,6 +186,9 @@ export const networkingSimulator: Simulator<NetworkState, NetworkAction, Network
           `HTTP/2 GET ${action.path} -> 200 OK transferred over encrypted TLS socket.`,
         )
       }
+
+      default:
+        return ok(state, [], '')
     }
   },
 }
