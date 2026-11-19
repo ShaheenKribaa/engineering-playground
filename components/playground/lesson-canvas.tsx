@@ -11,6 +11,9 @@ import { MetricChips } from './metric-chips'
 import { DockerHost } from './viz/docker-host'
 import { GitGraph } from './viz/git-graph'
 import { KafkaCluster } from './viz/kafka-cluster'
+import { K8sCluster } from './viz/k8s-cluster'
+import { NetworkFlow } from './viz/network-flow'
+import { CicdPipeline } from './viz/cicd-pipeline'
 
 export function LessonCanvas({ lesson, stepIndex }: { lesson: Lesson; stepIndex: number }) {
   const playback = usePlayback(lesson, stepIndex)
@@ -102,6 +105,12 @@ function Visualization({ lesson, frame }: { lesson: Lesson; frame: Frame }) {
       return <DockerHost {...props} />
     case 'kafka':
       return <KafkaCluster {...props} />
+    case 'kubernetes':
+      return <K8sCluster {...props} />
+    case 'networking':
+      return <NetworkFlow {...props} />
+    case 'cicd':
+      return <CicdPipeline {...props} />
     default:
       return null
   }

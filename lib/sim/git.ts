@@ -37,6 +37,7 @@ export interface GitState {
   currentBranch: string | null
   nextLane: number
   merging: GitMerge | null
+  stash?: { message: string; changes: Record<string, string> }[]
 }
 
 export type ResolveStrategy = 'ours' | 'theirs' | 'both'
@@ -50,6 +51,10 @@ export type GitAction =
   | { type: 'mergeAbort' }
   | { type: 'resolve'; file: string; strategy: ResolveStrategy; content?: string }
   | { type: 'rebase'; onto: string }
+  | { type: 'cherryPick'; target: string }
+  | { type: 'reset'; target: string; mode?: 'soft' | 'hard' }
+  | { type: 'revert'; target: string }
+  | { type: 'stash'; pop?: boolean; message?: string }
   | { type: 'log' }
   | { type: 'status' }
 
@@ -64,6 +69,11 @@ export type GitEvent =
   | { type: 'CONFLICT_RESOLVED'; file: string }
   | { type: 'REBASED'; branch: string; replayed: { from: string; to: string }[] }
   | { type: 'AMENDED'; from: string; to: string }
+  | { type: 'CHERRY_PICKED'; from: string; to: string }
+  | { type: 'RESET'; to: string; mode: string }
+  | { type: 'REVERTED'; from: string; to: string }
+  | { type: 'STASHED'; count: number }
+  | { type: 'STASH_POPPED' }
 
 type Result = SimulationResult<GitState, GitEvent>
 
@@ -443,6 +453,110 @@ export const gitSimulator: Simulator<GitState, GitAction, GitEvent, void> = {
         }
         return ok(state, [], `On branch ${state.currentBranch}\nnothing to commit, working tree clean`)
       }
+
+      case 'cherryPick': {
+        const guard = requireRepo(state) ?? requireNoMerge(state, 'Cherry-picking')
+        if (guard) return guard
+        const current = state.branches[state.currentBranch!]
+        let targetId: string | null = null
+        if (state.commits[action.target]) targetId = action.target
+        else if (state.branches[action.target]?.head) targetId = state.branches[action.target].head
+        else {
+          const match = Object.keys(state.commits).find((id) => id.startsWith(action.target))
+          if (match) targetId = match
+        }
+        if (!targetId || !state.commits[targetId]) {
+          return fail(state, 'BAD_REVISION', `fatal: bad revision '${action.target}'`)
+        }
+        const source = state.commits[targetId]
+        const parent = current.head ? [current.head] : []
+        const [next, commit] = addCommit(state, source.message, parent, source.changes, current.name)
+        return ok(
+          next,
+          [{ type: 'CHERRY_PICKED', from: targetId, to: commit.id }],
+          `[${current.name} ${commit.id}] ${source.message}\n(cherry-picked from commit ${targetId})`,
+        )
+      }
+
+      case 'reset': {
+        const guard = requireRepo(state)
+        if (guard) return guard
+        const current = state.branches[state.currentBranch!]
+        let targetId: string | null = null
+        const target = action.target.trim()
+        if (target === 'HEAD~1' || target === 'HEAD^') {
+          if (!current.head) return fail(state, 'NO_PARENT', 'fatal: HEAD has no parent')
+          targetId = state.commits[current.head]?.parents[0] ?? null
+        } else if (state.commits[target]) {
+          targetId = target
+        } else if (state.branches[target]?.head) {
+          targetId = state.branches[target].head
+        } else {
+          const match = Object.keys(state.commits).find((id) => id.startsWith(target))
+          if (match) targetId = match
+        }
+        if (!targetId) {
+          return fail(state, 'BAD_TARGET', `fatal: Cannot do reset to '${action.target}'.`)
+        }
+        const nextBranches = {
+          ...state.branches,
+          [current.name]: { ...current, head: targetId },
+        }
+        return ok(
+          { ...state, branches: nextBranches, merging: null },
+          [{ type: 'RESET', to: targetId, mode: action.mode ?? 'hard' }],
+          `HEAD is now at ${targetId} ${state.commits[targetId]?.message ?? ''}`,
+        )
+      }
+
+      case 'revert': {
+        const guard = requireRepo(state) ?? requireNoMerge(state, 'Reverting')
+        if (guard) return guard
+        const current = state.branches[state.currentBranch!]
+        let targetId: string | null = null
+        if (state.commits[action.target]) targetId = action.target
+        else if (state.branches[action.target]?.head) targetId = state.branches[action.target].head
+        else {
+          const match = Object.keys(state.commits).find((id) => id.startsWith(action.target))
+          if (match) targetId = match
+        }
+        if (!targetId || !state.commits[targetId]) {
+          return fail(state, 'BAD_REVISION', `fatal: bad revision '${action.target}'`)
+        }
+        const source = state.commits[targetId]
+        const parent = current.head ? [current.head] : []
+        const revertChanges = Object.fromEntries(Object.keys(source.changes).map((k) => [k, 'reverted']))
+        const [next, commit] = addCommit(state, `Revert "${source.message}"`, parent, revertChanges, current.name)
+        return ok(
+          next,
+          [{ type: 'REVERTED', from: targetId, to: commit.id }],
+          `[${current.name} ${commit.id}] Revert "${source.message}"`,
+        )
+      }
+
+      case 'stash': {
+        const guard = requireRepo(state)
+        if (guard) return guard
+        const currentStash = state.stash ?? []
+        if (action.pop) {
+          if (!currentStash.length) {
+            return fail(state, 'NO_STASH', 'error: No stash entries found.')
+          }
+          const popped = currentStash[0]
+          return ok(
+            { ...state, stash: currentStash.slice(1) },
+            [{ type: 'STASH_POPPED' }],
+            `Dropped refs/stash@{0} (${popped.message})\nApplied stashed changes.`,
+          )
+        }
+        const entry = { message: action.message ?? 'WIP on ' + (state.currentBranch ?? 'HEAD'), changes: {} }
+        const nextStash = [entry, ...currentStash]
+        return ok(
+          { ...state, stash: nextStash },
+          [{ type: 'STASHED', count: nextStash.length }],
+          `Saved working directory and index state "${entry.message}"`,
+        )
+      }
     }
   },
 }
@@ -496,10 +610,25 @@ export function parseGitCommand(input: string): GitAction | { error: string } {
       return { type: 'log' }
     case 'status':
       return { type: 'status' }
+    case 'cherry-pick':
+      if (!rest[0]) return { error: 'usage: git cherry-pick <commit-hash>' }
+      return { type: 'cherryPick', target: rest[0] }
+    case 'reset': {
+      const mode = rest.includes('--soft') ? 'soft' : 'hard'
+      const target = rest.find((t) => !t.startsWith('-')) ?? 'HEAD~1'
+      return { type: 'reset', target, mode }
+    }
+    case 'revert':
+      if (!rest[0]) return { error: 'usage: git revert <commit-hash>' }
+      return { type: 'revert', target: rest[0] }
+    case 'stash': {
+      const pop = rest[0] === 'pop'
+      return { type: 'stash', pop, message: rest.slice(pop ? 1 : 0).join(' ') || undefined }
+    }
     default:
       return {
         error:
-          'Supported: init, status, commit -m [--amend] [file=content], branch, switch [-c], checkout [-b|--ours|--theirs], add, merge [--abort], rebase, log',
+          'Supported: init, status, commit -m [--amend] [file=content], branch, switch [-c], checkout [-b|--ours|--theirs], add, merge [--abort], rebase, cherry-pick, reset [--hard|--soft], revert, stash [pop], log',
       }
   }
 }

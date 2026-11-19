@@ -2,18 +2,20 @@
 
 import { BookOpen, Boxes, FlaskConical, Menu, Moon, ScrollText, Search, Sun, Terminal } from 'lucide-react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { cn } from '@/lib/utils'
 import { useShell } from './shell-context'
 
 const NAV = [
-  { label: 'Learn', icon: BookOpen, active: true },
-  { label: 'Challenges', icon: Terminal, active: false },
-  { label: 'Sim Lab', icon: FlaskConical, active: false },
-  { label: 'Cheatsheets', icon: ScrollText, active: false },
+  { label: 'Learn', href: '/learn/git-branching/1', match: '/learn', icon: BookOpen },
+  { label: 'Challenges', href: '/challenges', match: '/challenges', icon: Terminal },
+  { label: 'Sim Lab', href: '/lab', match: '/lab', icon: FlaskConical },
+  { label: 'Cheatsheets', href: '/cheatsheets', match: '/cheatsheets', icon: ScrollText },
 ]
 
 export function AppHeader() {
+  const pathname = usePathname()
   const { query, setQuery, setNavOpen } = useShell()
   const { resolvedTheme, setTheme } = useTheme()
 
@@ -38,28 +40,25 @@ export function AppHeader() {
       </Link>
 
       <nav aria-label="Primary" className="ml-4 hidden items-center gap-1 md:flex">
-        {NAV.map(({ label, icon: Icon, active }) =>
-          active ? (
-            <span
+        {NAV.map(({ label, href, match, icon: Icon }) => {
+          const isActive = pathname.startsWith(match)
+          return (
+            <Link
               key={label}
-              aria-current="page"
-              className="flex items-center gap-2 rounded-md border-[1.5px] border-ink bg-tint-green px-4 py-1.5 text-sm font-semibold hard-shadow"
+              href={href}
+              aria-current={isActive ? 'page' : undefined}
+              className={cn(
+                'flex items-center gap-2 rounded-md px-3.5 py-1.5 text-sm font-semibold transition-colors',
+                isActive
+                  ? 'border-[1.5px] border-ink bg-tint-green hard-shadow'
+                  : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+              )}
             >
               <Icon className="size-4" aria-hidden="true" />
               {label}
-            </span>
-          ) : (
-            <span
-              key={label}
-              title="Coming soon"
-              aria-disabled="true"
-              className="flex cursor-not-allowed items-center gap-2 rounded-md px-3 py-1.5 text-sm text-muted-foreground"
-            >
-              <Icon className="size-4" aria-hidden="true" />
-              {label}
-            </span>
-          ),
-        )}
+            </Link>
+          )
+        })}
       </nav>
 
       <div className="ml-auto flex items-center gap-2">

@@ -29,6 +29,7 @@ export interface KafkaState {
   brokers: number[]
   topic: KafkaTopic | null
   groups: ConsumerGroup[]
+  failedBrokers?: number[]
 }
 
 export type KafkaAction =
@@ -36,12 +37,18 @@ export type KafkaAction =
   | { type: 'produce'; key: string; value: string }
   | { type: 'join'; group: string; member: string }
   | { type: 'poll'; group: string; max?: number }
+  | { type: 'failBroker'; broker: number }
+  | { type: 'recoverBroker'; broker: number }
+  | { type: 'electLeader'; partition: number; leader: number }
 
 export type KafkaEvent =
   | { type: 'TOPIC_CREATED'; name: string }
   | { type: 'MESSAGE_PRODUCED'; partition: number; offset: number }
   | { type: 'REBALANCED'; group: string }
   | { type: 'CONSUMED'; group: string; member: string; partition: number; offset: number }
+  | { type: 'BROKER_FAILED'; broker: number }
+  | { type: 'BROKER_RECOVERED'; broker: number }
+  | { type: 'LEADER_ELECTED'; partition: number; leader: number }
 
 type Result = SimulationResult<KafkaState, KafkaEvent>
 
@@ -165,6 +172,53 @@ export const kafkaSimulator: Simulator<KafkaState, KafkaAction, KafkaEvent, { br
                 .map(([p, o]) => `P${p}=${o}`)
                 .join(' ')}`
             : `${group.id}: no new records`,
+        )
+      }
+
+      case 'failBroker': {
+        const failed = new Set(state.failedBrokers ?? [])
+        failed.add(action.broker)
+        const failedList = Array.from(failed)
+        const aliveBrokers = state.brokers.filter((b) => !failed.has(b))
+        const events: KafkaEvent[] = [{ type: 'BROKER_FAILED', broker: action.broker }]
+        
+        let nextTopic = state.topic
+        if (nextTopic && aliveBrokers.length > 0) {
+          const nextPartitions = nextTopic.partitions.map((p) => {
+            if (p.leader === action.broker) {
+              const newLeader = aliveBrokers[p.id % aliveBrokers.length]
+              events.push({ type: 'LEADER_ELECTED', partition: p.id, leader: newLeader })
+              return { ...p, leader: newLeader }
+            }
+            return p
+          })
+          nextTopic = { ...nextTopic, partitions: nextPartitions }
+        }
+        return ok(
+          { ...state, failedBrokers: failedList, topic: nextTopic },
+          events,
+          `Broker ${action.broker} failed. Leader failover completed to surviving brokers.`,
+        )
+      }
+
+      case 'recoverBroker': {
+        const failed = (state.failedBrokers ?? []).filter((b) => b !== action.broker)
+        return ok(
+          { ...state, failedBrokers: failed },
+          [{ type: 'BROKER_RECOVERED', broker: action.broker }],
+          `Broker ${action.broker} recovered and rejoined the cluster.`,
+        )
+      }
+
+      case 'electLeader': {
+        if (!state.topic) return fail(state, 'NO_TOPIC', 'No active topic.')
+        const nextPartitions = state.topic.partitions.map((p) =>
+          p.id === action.partition ? { ...p, leader: action.leader } : p,
+        )
+        return ok(
+          { ...state, topic: { ...state.topic, partitions: nextPartitions } },
+          [{ type: 'LEADER_ELECTED', partition: action.partition, leader: action.leader }],
+          `Elected broker-${action.leader} as leader for partition ${action.partition}.`,
         )
       }
     }

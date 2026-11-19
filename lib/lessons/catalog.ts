@@ -1,6 +1,16 @@
 import { dockerContainersLesson } from './docker-containers'
+import { dockerComposeLesson } from './docker-compose'
 import { gitBranchingLesson } from './git-branching'
+import { gitRebaseLesson } from './git-rebase'
+import { gitConflictsLesson } from './git-conflicts'
+import { gitCherryPickLesson } from './git-cherry-pick'
 import { kafkaPartitionsLesson } from './kafka-partitions'
+import { kafkaReplicationLesson } from './kafka-replication'
+import { k8sPodsLesson } from './k8s-pods'
+import { k8sServicesLesson } from './k8s-services'
+import { netDnsLesson } from './net-dns'
+import { netTcpLesson } from './net-tcp'
+import { cicdPipelinesLesson } from './cicd-pipelines'
 import type { Lesson, Tone } from './types'
 
 export interface CatalogLesson {
@@ -18,8 +28,18 @@ export interface Domain {
 
 export const lessons: Record<string, Lesson> = {
   [gitBranchingLesson.id]: gitBranchingLesson,
+  [gitRebaseLesson.id]: gitRebaseLesson,
+  [gitConflictsLesson.id]: gitConflictsLesson,
+  [gitCherryPickLesson.id]: gitCherryPickLesson,
   [dockerContainersLesson.id]: dockerContainersLesson,
+  [dockerComposeLesson.id]: dockerComposeLesson,
   [kafkaPartitionsLesson.id]: kafkaPartitionsLesson,
+  [kafkaReplicationLesson.id]: kafkaReplicationLesson,
+  [k8sPodsLesson.id]: k8sPodsLesson,
+  [k8sServicesLesson.id]: k8sServicesLesson,
+  [netDnsLesson.id]: netDnsLesson,
+  [netTcpLesson.id]: netTcpLesson,
+  [cicdPipelinesLesson.id]: cicdPipelinesLesson,
 }
 
 export const domains: Domain[] = [
@@ -29,8 +49,9 @@ export const domains: Domain[] = [
     tone: 'orange',
     lessons: [
       { id: 'git-branching', title: 'Branching & Merging', playable: true },
-      { id: 'git-rebase', title: 'Rebase, Step by Step', playable: false },
-      { id: 'git-conflicts', title: 'Resolving Conflicts', playable: false },
+      { id: 'git-rebase', title: 'Rebase, Step by Step', playable: true },
+      { id: 'git-conflicts', title: 'Resolving Conflicts', playable: true },
+      { id: 'git-cherry-pick', title: 'Cherry-Pick & Stashing', playable: true },
     ],
   },
   {
@@ -39,7 +60,7 @@ export const domains: Domain[] = [
     tone: 'blue',
     lessons: [
       { id: 'docker-containers', title: 'From Image to Container', playable: true },
-      { id: 'docker-compose', title: 'Compose Multi-Service Apps', playable: false },
+      { id: 'docker-compose', title: 'Compose Multi-Service Apps', playable: true },
     ],
   },
   {
@@ -48,7 +69,7 @@ export const domains: Domain[] = [
     tone: 'lavender',
     lessons: [
       { id: 'kafka-partitions', title: 'Topics, Partitions & Offsets', playable: true },
-      { id: 'kafka-replication', title: 'Replication & Failover', playable: false },
+      { id: 'kafka-replication', title: 'Replication & Failover', playable: true },
     ],
   },
   {
@@ -56,8 +77,8 @@ export const domains: Domain[] = [
     title: 'Kubernetes',
     tone: 'green',
     lessons: [
-      { id: 'k8s-pods', title: 'Pods & Deployments', playable: false },
-      { id: 'k8s-services', title: 'Services & Scheduling', playable: false },
+      { id: 'k8s-pods', title: 'Pods & Deployments', playable: true },
+      { id: 'k8s-services', title: 'Services & Scheduling', playable: true },
     ],
   },
   {
@@ -65,15 +86,15 @@ export const domains: Domain[] = [
     title: 'Networking',
     tone: 'yellow',
     lessons: [
-      { id: 'net-dns', title: 'DNS Resolution', playable: false },
-      { id: 'net-tcp', title: 'TCP & TLS Handshakes', playable: false },
+      { id: 'net-dns', title: 'DNS Resolution', playable: true },
+      { id: 'net-tcp', title: 'TCP & TLS Handshakes', playable: true },
     ],
   },
   {
     id: 'cicd',
     title: 'CI/CD',
     tone: 'pink',
-    lessons: [{ id: 'cicd-pipelines', title: 'Pipelines & Artifacts', playable: false }],
+    lessons: [{ id: 'cicd-pipelines', title: 'Pipelines & Artifacts', playable: true }],
   },
 ]
 
